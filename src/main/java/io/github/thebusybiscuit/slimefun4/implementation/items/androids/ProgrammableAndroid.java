@@ -117,6 +117,14 @@ public class ProgrammableAndroid extends SlimefunItem implements InventoryBlock,
                     openScriptEditor(p, b);
                     return false;
                 });
+
+                menu.replaceExistingItem(16, new CustomItem(HeadTexture.BATTERY.getAsItemStack(), "&b共享管理", "", "&8\u21E8 &7单击打开共享管理", "&8在此你可以管理机器人可以共享给哪些玩家使用"));
+                menu.addMenuClickHandler(16, (p, slot, item, action) -> {
+                    BlockStorage.addBlockInfo(b, "paused", "true");
+                    SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
+                    //openShareableManager(p, b);
+                    return false;
+                });
             }
 
             @Override
