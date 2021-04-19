@@ -67,6 +67,8 @@ public class ProgrammableAndroid extends SlimefunItem implements InventoryBlock,
     protected final String texture;
     private final int tier;
 
+    private final ShareableAndroidMenu shareable = new ShareableAndroidMenu();
+
     @ParametersAreNonnullByDefault
     public ProgrammableAndroid(Category category, int tier, SlimefunItemStack item, RecipeType recipeType, ItemStack[] recipe) {
         super(category, item, recipeType, recipe);
@@ -75,63 +77,89 @@ public class ProgrammableAndroid extends SlimefunItem implements InventoryBlock,
         texture = item.getSkullTexture().orElse(null);
         registerDefaultFuelTypes();
 
-        new BlockMenuPreset(getId(), "可编程式机器人") {
+    new BlockMenuPreset(getId(), "可编程式机器人") {
 
-            @Override
-            public void init() {
-                constructMenu(this);
-            }
+      @Override
+      public void init() {
+        constructMenu(this);
+      }
 
-            @Override
-            public boolean canOpen(Block b, Player p) {
-                boolean open = BlockStorage.getLocationInfo(b.getLocation(), "owner").equals(p.getUniqueId().toString()) || p.hasPermission("slimefun.android.bypass");
+      @Override
+      public boolean canOpen(Block b, Player p) {
+        boolean open =
+            BlockStorage.getLocationInfo(b.getLocation(), "owner").equals(p.getUniqueId().toString())
+                || p.hasPermission("slimefun.android.bypass")
+                || shareable.canOpen(p);
 
-                if (!open) {
-                    SlimefunPlugin.getLocalization().sendMessage(p, "inventory.no-access", true);
-                }
+        if (!open) {
+          SlimefunPlugin.getLocalization().sendMessage(p, "inventory.no-access", true);
+        }
 
-                return open;
-            }
+        return open;
+      }
 
-            @Override
-            public void newInstance(BlockMenu menu, Block b) {
-                menu.replaceExistingItem(15, new CustomItem(HeadTexture.SCRIPT_START.getAsItemStack(), "&a启动/继续运行"));
-                menu.addMenuClickHandler(15, (p, slot, item, action) -> {
-                    SlimefunPlugin.getLocalization().sendMessage(p, "android.started", true);
-                    BlockStorage.addBlockInfo(b, "paused", "false");
-                    p.closeInventory();
-                    return false;
-                });
+      @Override
+      public void newInstance(BlockMenu menu, Block b) {
+        menu.replaceExistingItem(
+            15, new CustomItem(HeadTexture.SCRIPT_START.getAsItemStack(), "&a启动/继续运行"));
+        menu.addMenuClickHandler(
+            15,
+            (p, slot, item, action) -> {
+              SlimefunPlugin.getLocalization().sendMessage(p, "android.started", true);
+              BlockStorage.addBlockInfo(b, "paused", "false");
+              p.closeInventory();
+              return false;
+            });
 
-                menu.replaceExistingItem(17, new CustomItem(HeadTexture.SCRIPT_PAUSE.getAsItemStack(), "&4暂停运行"));
-                menu.addMenuClickHandler(17, (p, slot, item, action) -> {
-                    BlockStorage.addBlockInfo(b, "paused", "true");
-                    SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
-                    return false;
-                });
+        menu.replaceExistingItem(
+            17, new CustomItem(HeadTexture.SCRIPT_PAUSE.getAsItemStack(), "&4暂停运行"));
+        menu.addMenuClickHandler(
+            17,
+            (p, slot, item, action) -> {
+              BlockStorage.addBlockInfo(b, "paused", "true");
+              SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
+              return false;
+            });
 
-                menu.replaceExistingItem(16, new CustomItem(HeadTexture.ENERGY_REGULATOR.getAsItemStack(), "&b内存核心", "", "&8\u21E8 &7单击打开脚本编辑器"));
-                menu.addMenuClickHandler(16, (p, slot, item, action) -> {
-                    BlockStorage.addBlockInfo(b, "paused", "true");
-                    SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
-                    openScriptEditor(p, b);
-                    return false;
-                });
+        menu.replaceExistingItem(
+            16,
+            new CustomItem(
+                HeadTexture.ENERGY_REGULATOR.getAsItemStack(),
+                "&b内存核心",
+                "",
+                "&8\u21E8 &7单击打开脚本编辑器"));
+        menu.addMenuClickHandler(
+            16,
+            (p, slot, item, action) -> {
+              BlockStorage.addBlockInfo(b, "paused", "true");
+              SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
+              openScriptEditor(p, b);
+              return false;
+            });
 
-                menu.replaceExistingItem(16, new CustomItem(HeadTexture.BATTERY.getAsItemStack(), "&b共享管理", "", "&8\u21E8 &7单击打开共享管理", "&8在此你可以管理机器人可以共享给哪些玩家使用"));
-                menu.addMenuClickHandler(16, (p, slot, item, action) -> {
-                    BlockStorage.addBlockInfo(b, "paused", "true");
-                    SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
-                    //openShareableManager(p, b);
-                    return false;
-                });
-            }
+        menu.replaceExistingItem(
+            16,
+            new CustomItem(
+                HeadTexture.BATTERY.getAsItemStack(),
+                "&b共享管理",
+                "",
+                "&8\u21E8 &7单击打开共享管理",
+                "&8在此你可以管理机器人可以共享给哪些玩家使用"));
+        menu.addMenuClickHandler(
+            16,
+            (p, slot, item, action) -> {
+              BlockStorage.addBlockInfo(b, "paused", "true");
+              SlimefunPlugin.getLocalization().sendMessage(p, "android.stopped", true);
+              // openShareableManager(p, b);
+              return false;
+            });
+      }
 
-            @Override
-            public int[] getSlotsAccessedByItemTransport(ItemTransportFlow flow) {
-                return new int[0];
-            }
-        };
+      @Override
+      public int[] getSlotsAccessedByItemTransport(ItemTransportFlow flow) {
+        return new int[0];
+      }
+    };
 
         addItemHandler(onPlace(), onBreak());
     }

@@ -1,6 +1,5 @@
 package io.github.thebusybiscuit.slimefun4.core.guide.options;
 
-import io.github.thebusybiscuit.cscorelib2.chat.ChatColors;
 import io.github.thebusybiscuit.cscorelib2.data.PersistentDataAPI;
 import io.github.thebusybiscuit.cscorelib2.item.CustomItem;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
@@ -42,7 +41,7 @@ class PlayerLanguageOption implements SlimefunGuideOption<String> {
 
             List<String> lore = new ArrayList<>();
             lore.add("");
-            lore.add(ChatColors.color("&e&o") + SlimefunPlugin.getLocalization().getMessage(p, "guide.work-in-progress"));
+            lore.add("&e&o" + SlimefunPlugin.getLocalization().getMessage(p, "guide.work-in-progress"));
             lore.add("");
             lore.addAll(SlimefunPlugin.getLocalization().getMessages(p, "guide.languages.description", msg -> msg.replace("%contributors%", String.valueOf(SlimefunPlugin.getGitHubService().getContributors().size()))));
             lore.add("");
@@ -88,7 +87,7 @@ class PlayerLanguageOption implements SlimefunGuideOption<String> {
                 });
             } else if (i == 7) {
                 menu.addItem(7, new CustomItem(SlimefunUtils.getCustomHead(HeadTexture.ADD_NEW_LANGUAGE.getTexture()), SlimefunPlugin.getLocalization().getMessage(p, "guide.languages.translations.name"), "", "&7\u21E8 &e" + SlimefunPlugin.getLocalization().getMessage(p, "guide.languages.translations.lore")), (pl, slot, item, action) -> {
-                    ChatUtils.sendURL(pl, "https://github.com/TheBusyBiscuit/Slimefun4/wiki/Translating-Slimefun");
+                    ChatUtils.sendURL(pl, "https://github.com/Slimefun/Slimefun4/wiki/Translating-Slimefun");
                     pl.closeInventory();
                     return false;
                 });
