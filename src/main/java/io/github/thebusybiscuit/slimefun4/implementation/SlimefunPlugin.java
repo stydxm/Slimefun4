@@ -18,6 +18,7 @@ import javax.annotation.ParametersAreNonnullByDefault;
 import org.apache.commons.lang.Validate;
 import org.bukkit.Bukkit;
 import org.bukkit.Server;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -33,6 +34,7 @@ import io.github.thebusybiscuit.cscorelib2.protection.ProtectionManager;
 import io.github.thebusybiscuit.slimefun4.api.MinecraftVersion;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import io.github.thebusybiscuit.slimefun4.api.exceptions.TagMisconfigurationException;
+import io.github.thebusybiscuit.slimefun4.api.geo.GEOResource;
 import io.github.thebusybiscuit.slimefun4.api.gps.GPSNetwork;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
 import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
@@ -61,6 +63,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.items.tools.GrapplingHo
 import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.SeismicAxe;
 import io.github.thebusybiscuit.slimefun4.implementation.items.weapons.VampireBlade;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.AncientAltarListener;
+import io.github.thebusybiscuit.slimefun4.implementation.listeners.AutoCrafterListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BackpackListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BeeWingsListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.BlockListener;
@@ -79,6 +82,7 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.GrapplingHook
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.HopperListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.ItemDropListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.ItemPickupListener;
+import io.github.thebusybiscuit.slimefun4.implementation.listeners.MiningAndroidListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.MultiBlockListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.NetworkListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.PlayerProfileListener;
@@ -92,7 +96,6 @@ import io.github.thebusybiscuit.slimefun4.implementation.listeners.SoulboundList
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.TalismanListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.VampireBladeListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.VillagerTradingListener;
-import io.github.thebusybiscuit.slimefun4.implementation.listeners.WorldListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.AnvilListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.BrewingStandListener;
 import io.github.thebusybiscuit.slimefun4.implementation.listeners.crafting.CartographyTableListener;
@@ -118,6 +121,7 @@ import io.github.thebusybiscuit.slimefun4.utils.NumberUtils;
 import io.github.thebusybiscuit.slimefun4.utils.tags.SlimefunTag;
 import io.papermc.lib.PaperLib;
 import me.mrCookieSlime.CSCoreLibPlugin.general.Inventory.MenuListener;
+import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.SlimefunItem;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AContainer;
 import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.AGenerator;
 import me.mrCookieSlime.Slimefun.api.BlockStorage;
@@ -637,10 +641,12 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
         new GrindstoneListener(this);
         new CartographyTableListener(this);
         new ButcherAndroidListener(this);
+        new MiningAndroidListener(this);
         new NetworkListener(this, networkManager);
         new HopperListener(this);
         new TalismanListener(this);
         new SoulboundListener(this);
+        new AutoCrafterListener(this);
 
         // Bees were added in 1.15
         if (minecraftVersion.isAtLeast(MinecraftVersion.MINECRAFT_1_15)) {
@@ -664,9 +670,6 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
 
         // Handle Slimefun Guide being given on Join
         new SlimefunGuideListener(this, config.getBoolean("guide.receive-on-first-join"));
-
-        // Load/Unload Worlds in Slimefun
-        new WorldListener(this);
 
         // Clear the Slimefun Guide History upon Player Leaving
         new PlayerProfileListener(this);
@@ -711,6 +714,17 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
     }
 
     /**
+     * This returns the global instance of {@link SlimefunPlugin}.
+     * This may return null if the {@link Plugin} was disabled.
+     *
+     * @return The {@link SlimefunPlugin} instance
+     */
+    @Nullable
+    public static SlimefunPlugin instance() {
+        return instance;
+    }
+
+    /**
      * This private static method allows us to throw a proper {@link Exception}
      * whenever someone tries to access a static method while the instance is null.
      * This happens when the method is invoked before {@link #onEnable()} or after {@link #onDisable()}.
@@ -721,17 +735,6 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
         if (instance == null) {
             throw new IllegalStateException("Cannot invoke static method, Slimefun instance is null.");
         }
-    }
-
-    /**
-     * This returns the global instance of {@link SlimefunPlugin}.
-     * This may return null if the {@link Plugin} was disabled.
-     *
-     * @return The {@link SlimefunPlugin} instance
-     */
-    @Nullable
-    public static SlimefunPlugin instance() {
-        return instance;
     }
 
     /**
@@ -776,6 +779,13 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
         return instance.items;
     }
 
+    /**
+     * This returns our {@link GPSNetwork} instance.
+     * The {@link GPSNetwork} is responsible for handling any GPS-related
+     * operations and for managing any {@link GEOResource}.
+     * 
+     * @return Our {@link GPSNetwork} instance
+     */
     @Nonnull
     public static GPSNetwork getGPSNetwork() {
         validateInstance();
@@ -836,12 +846,26 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
         return instance.blockDataService;
     }
 
+    /**
+     * This method returns out world settings service.
+     * That service is responsible for managing item settings per
+     * {@link World}, such as disabling a {@link SlimefunItem} in a
+     * specific {@link World}.
+     * 
+     * @return Our instance of {@link PerWorldSettingsService}
+     */
     @Nonnull
     public static PerWorldSettingsService getWorldSettingsService() {
         validateInstance();
         return instance.worldSettingsService;
     }
 
+    /**
+     * This returns our {@link HologramsService} which handles the creation and
+     * cleanup of any holograms.
+     * 
+     * @return Our instance of {@link HologramsService}
+     */
     @Nonnull
     public static HologramsService getHologramsService() {
         validateInstance();
@@ -999,15 +1023,13 @@ public final class SlimefunPlugin extends JavaPlugin implements SlimefunAddon {
     @Nonnull
     public static Set<Plugin> getInstalledAddons() {
         validateInstance();
-
         String pluginName = instance.getName();
 
         // @formatter:off
-        return Arrays.stream(instance.getServer().getPluginManager().getPlugins())
-                .filter(plugin -> {
-                    PluginDescriptionFile description = plugin.getDescription();
-                    return description.getDepend().contains(pluginName) || description.getSoftDepend().contains(pluginName);
-                }).collect(Collectors.toSet());
+        return Arrays.stream(instance.getServer().getPluginManager().getPlugins()).filter(plugin -> {
+            PluginDescriptionFile description = plugin.getDescription();
+            return description.getDepend().contains(pluginName) || description.getSoftDepend().contains(pluginName);
+        }).collect(Collectors.toSet());
         // @formatter:on
     }
 

@@ -35,22 +35,23 @@ import io.github.thebusybiscuit.slimefun4.api.exceptions.WrongItemStackException
 import io.github.thebusybiscuit.slimefun4.api.items.ItemSetting;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemState;
 import io.github.thebusybiscuit.slimefun4.api.player.PlayerProfile;
+import io.github.thebusybiscuit.slimefun4.core.SlimefunRegistry;
 import io.github.thebusybiscuit.slimefun4.core.attributes.NotConfigurable;
 import io.github.thebusybiscuit.slimefun4.core.attributes.Placeable;
 import io.github.thebusybiscuit.slimefun4.core.attributes.Radioactive;
 import io.github.thebusybiscuit.slimefun4.core.attributes.Rechargeable;
 import io.github.thebusybiscuit.slimefun4.core.guide.SlimefunGuide;
+import io.github.thebusybiscuit.slimefun4.core.handlers.GlobalItemHandler;
 import io.github.thebusybiscuit.slimefun4.core.researching.Research;
 import io.github.thebusybiscuit.slimefun4.implementation.SlimefunPlugin;
 import io.github.thebusybiscuit.slimefun4.implementation.items.VanillaItem;
 import io.github.thebusybiscuit.slimefun4.implementation.items.backpacks.SlimefunBackpack;
-import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.AutoDisenchanter;
-import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.AutoEnchanter;
+import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.AutoDisenchanter;
+import io.github.thebusybiscuit.slimefun4.implementation.items.electric.machines.enchanting.AutoEnchanter;
 import io.github.thebusybiscuit.slimefun4.utils.SlimefunUtils;
 import io.github.thebusybiscuit.slimefun4.utils.itemstack.ItemStackWrapper;
 import me.mrCookieSlime.Slimefun.Lists.RecipeType;
 import me.mrCookieSlime.Slimefun.Objects.Category;
-import me.mrCookieSlime.Slimefun.Objects.SlimefunBlockHandler;
 import me.mrCookieSlime.Slimefun.Objects.handlers.BlockTicker;
 import me.mrCookieSlime.Slimefun.Objects.handlers.ItemHandler;
 import me.mrCookieSlime.Slimefun.api.SlimefunItemStack;
@@ -245,6 +246,13 @@ public class SlimefunItem implements Placeable {
         return recipe;
     }
 
+    /**
+     * This method returns the {@link RecipeType}.
+     * The {@link RecipeType} determines how this {@link SlimefunItem} is crafted.
+     * 
+     * @return The {@link RecipeType} of this {@link SlimefunItem}
+     */
+    @Nonnull
     public RecipeType getRecipeType() {
         return recipeType;
     }
@@ -458,7 +466,7 @@ public class SlimefunItem implements Placeable {
 
                 // Load all item settings
                 for (ItemSetting<?> setting : itemSettings) {
-                    setting.load(this);
+                    setting.reload();
                 }
             }
 
@@ -468,18 +476,23 @@ public class SlimefunItem implements Placeable {
             }
 
             if (this instanceof NotConfigurable) {
-                // Not-configurable items will be enabled.
-                // Any other settings will remain as default.
+                /*
+                 * Not-configurable items will be enabled.
+                 * Any other settings will remain as default.
+                 */
                 state = ItemState.ENABLED;
             } else if (SlimefunPlugin.getItemCfg().getBoolean(id + ".enabled")) {
+                // The item has been enabled.
                 state = ItemState.ENABLED;
                 useableInWorkbench = SlimefunPlugin.getItemCfg().getBoolean(id + ".can-be-used-in-workbenches");
                 hidden = SlimefunPlugin.getItemCfg().getBoolean(id + ".hide-in-guide");
                 enchantable = SlimefunPlugin.getItemCfg().getBoolean(id + ".allow-enchanting");
                 disenchantable = SlimefunPlugin.getItemCfg().getBoolean(id + ".allow-disenchanting");
             } else if (this instanceof VanillaItem) {
+                // This item is a vanilla "mock" but was disabled.
                 state = ItemState.VANILLA_FALLBACK;
             } else {
+                // The item has been disabled.
                 state = ItemState.DISABLED;
             }
 
@@ -546,6 +559,7 @@ public class SlimefunItem implements Placeable {
         for (ItemHandler handler : itemhandlers.values()) {
             Optional<IncompatibleItemHandlerException> exception = handler.validate(this);
 
+            // Check if the validation caused an exception.
             if (exception.isPresent()) {
                 throw exception.get();
             } else {
@@ -557,12 +571,12 @@ public class SlimefunItem implements Placeable {
             }
 
             /*
-             * If this ItemHandler is "public" (not bound to this SlimefunItem),
-             * we add it to the list of public Item handlers
+             * If this ItemHandler is "global" (not bound to this SlimefunItem),
+             * we add it to the list of global Item handlers
              */
-            if (!handler.isPrivate()) {
-                Set<ItemHandler> handlerset = getPublicItemHandlers(handler.getIdentifier());
-                handlerset.add(handler);
+            if (handler instanceof GlobalItemHandler) {
+                SlimefunRegistry registry = SlimefunPlugin.getRegistry();
+                registry.getGlobalItemHandlers(handler.getIdentifier()).add(handler);
             }
         }
     }
@@ -793,6 +807,7 @@ public class SlimefunItem implements Placeable {
         Validate.notEmpty(handlers, "You cannot add zero handlers...");
         Validate.noNullElements(handlers, "You cannot add any 'null' ItemHandler!");
 
+        // Make sure they are added before the item was registered.
         if (state != ItemState.UNREGISTERED) {
             throw new UnsupportedOperationException("You cannot add an ItemHandler after the SlimefunItem was registered.");
         }
@@ -869,7 +884,7 @@ public class SlimefunItem implements Placeable {
      * @param page
      *            The associated wiki page
      */
-    public final void addOficialWikipage(@Nonnull String page) {
+    public final void addOfficialWikipage(@Nonnull String page) {
         Validate.notNull(page, "Wiki page cannot be null.");
         wikiURL = Optional.of("https://github.com/Slimefun/Slimefun4/wiki/" + page);
     }
@@ -878,7 +893,7 @@ public class SlimefunItem implements Placeable {
      * This method returns the wiki page that has been assigned to this item.
      * It will return null, if no wiki page was found.
      * 
-     * @see SlimefunItem#addOficialWikipage(String)
+     * @see SlimefunItem#addOfficialWikipage(String)
      * 
      * @return This item's wiki page
      */
@@ -929,6 +944,7 @@ public class SlimefunItem implements Placeable {
      * 
      * @return Whether or not an {@link ItemHandler} was found.
      */
+    @ParametersAreNonnullByDefault
     public <T extends ItemHandler> boolean callItemHandler(Class<T> c, Consumer<T> callable) {
         Optional<ItemHandler> handler = itemhandlers.get(c);
 
@@ -1038,14 +1054,12 @@ public class SlimefunItem implements Placeable {
      * This method checks if the given {@link Player} is able to use this {@link SlimefunItem}.
      * A {@link Player} can use it if the following conditions apply:
      * 
-     * <p>
      * <ul>
      * <li>The {@link SlimefunItem} is not disabled
      * <li>The {@link SlimefunItem} was not disabled for that {@link Player}'s {@link World}.
      * <li>The {@link Player} has the required {@link Permission} (if present)
      * <li>The {@link Player} has unlocked the required {@link Research} (if present)
      * </ul>
-     * <p>
      * 
      * If any of these conditions evaluate to <code>false</code>, then an optional message will be
      * sent to the {@link Player}.
@@ -1158,12 +1172,16 @@ public class SlimefunItem implements Placeable {
             // This wrapper improves the heavy ItemStack#getItemMeta() call by caching it.
             ItemStackWrapper wrapper = new ItemStackWrapper(item);
 
-            // Quite expensive performance-wise
-            // But necessary for supporting legacy items
+            /*
+             * Quite expensive performance-wise.
+             * But necessary for supporting legacy items
+             */
             for (SlimefunItem sfi : SlimefunPlugin.getRegistry().getAllSlimefunItems()) {
                 if (sfi.isItem(wrapper)) {
-                    // If we have to loop all items for the given item, then at least
-                    // set the id via PersistentDataAPI for future performance boosts
+                    /*
+                     * If we have to loop all items for the given item, then at least
+                     * set the id via PersistentDataAPI for future performance boosts
+                     */
                     SlimefunPlugin.getItemDataService().setItemData(item, sfi.getId());
 
                     return sfi;
@@ -1172,14 +1190,6 @@ public class SlimefunItem implements Placeable {
         }
 
         return null;
-    }
-
-    public static Set<ItemHandler> getPublicItemHandlers(Class<? extends ItemHandler> identifier) {
-        return SlimefunPlugin.getRegistry().getPublicItemHandlers().computeIfAbsent(identifier, c -> new HashSet<>());
-    }
-
-    public static void registerBlockHandler(String id, SlimefunBlockHandler handler) {
-        SlimefunPlugin.getRegistry().getBlockHandlers().put(id, handler);
     }
 
 }
